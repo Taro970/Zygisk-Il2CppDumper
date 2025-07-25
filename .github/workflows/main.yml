@@ -17,4 +17,52 @@
     lookup-only: # 可选，默认为 false
     # 即使之前的步骤失败，也要运行后续步骤来保存缓存
     save-always: # 可选，默认为 false
+
+    name: Build Zygisk-Il2CppDumper
+
+on:
+  workflow_dispatch:  # 手動觸發
+    inputs:
+      package_name:
+        description: 'Game package name (e.g., com.dkgame.gplay.crisisactiontw)'
+        required: true
+        default: 'com.dkgame.gplay.crisisactiontw'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: '11'
+          cache: 'maven'  # 緩存 Maven 依賴 (可改 gradle)
+
+      - name: Cache build files
+        uses: actions/cache@v4.2.3
+        with:
+          path: |
+            ~/.m2/repository  # Maven 緩存路徑
+            module/  # 模組中間文件
+          key: ${{ runner.os }}-build-${{ hashFiles('**/pom.xml') }}  # 依賴文件哈希
+          restore-keys: |
+            ${{ runner.os }}-build-  # 過期緩存前綴
+          fail-on-cache-miss: false
+          enableCrossOsArchive: false
+
+      - name: Build module
+        run: |
+          echo "Building for package: ${{ github.event.inputs.package_name }}"
+          sed -i "s/id=.*/id=${{ github.event.inputs.package_name }}/" module/module.prop
+          sed -i "s/name=.*/name=Zygisk-Il2CppDumper for ${{ github.event.inputs.package_name }}/" module/module.prop
+          zip -r module.zip module
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: module
+          path: module.zip
           
